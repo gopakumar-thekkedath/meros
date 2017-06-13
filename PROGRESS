@@ -1,0 +1,181 @@
+23/03/2004:
+	Started coding MEROS
+17/04/2004:
+Got paging and interrupt working together
+A20 is still not enabled
+
+18/04/2004:
+Able to map physical address 0x0-4MB-1 using linear address
+	0xc0000000  on words.
+Ported display code, need some more patch works.
+	Able to display the hard disk and mouse information.
+20/04/2004:
+	Ported the A20 enabling code from Linux to mer_stup.asm
+	Changed the setup code size to fit to 1 sector, now
+	setup code is in sector 2 only and protected mode code
+	 begins	from sector 3 onwords.
+05/05/2004:
+	Created a linker script.
+
+18/05/2004:
+	Ported the print function to C. 
+	Started with boot memory manager.
+17/06/2004:
+	Boot memory manager coding over, reserved kernel pages and zero
+	page.
+	Redesigned ISR hooking, now a device driver can call 'request_irq'
+	with two parameters, the ISR address and IRQ number, to hook the 
+	IRQ line.
+	Coded a basic keyboard driver.
+18/06/2004:
+	Wrote a Makefile for project building	
+
+16/07/2004:
+	In 'mer_intr.c' currently we are currently determining the IRQ number
+	for the interrupt by the inline assembly statement in do_irq() function.
+
+		asm("movl 8(%%ebp), %0 : "r="(irq_num):)
+
+	This works as from the base ISR we push the IRQ num in to stack and
+	then invoke do_IRQ, so on entering do_IRQ the stack will have
+
+		IRQ Num
+		return add of base ISR
+
+	now we know that on entering any function, normally the EBP is 
+	pushed to stack and ESP is stored in EBP ie stack will be
+	
+		IRQ Num
+		return address of base ISR
+		EBP old value
+				<-- EBP , ESP registers points to this 
+					stack location.
+
+		So [EBP + 8] will fetch us the IRQ number.
+	
+18/07/04:
+	Changed the plan  to implement the same using ESP as the ESP 
+	increment in a function is not very predicatable.
+
+04/08/04:
+	Just an overview of the linking process ... We are linking the
+binary in the ELF format with seperate code, data and BSS sections ie
+all the code part from various obj files will be linked together , same
+for the data and BSS which is uninitialized global data.
+
+In the assembly files, we do not have any seperate code and data areas
+defined, generally we have the initial part full of code followed by data
+, this is because in the protected mode our code and data segment both begins
+at 0x0 and spans 4GB, so the code and data can appear any where in the memory.
+
+18/08/04:
+	Able to access the current process's task_struct using current ESP
+register value.
+	ie task_struct = ESP & 0xffffff000
+
+	0xfffff000 because, current stack = current task_struct + 4k
+
+22/08/04:
+	Able to switch to task2 from task1, then system gets screwed !!
+	
+/08/04:
+	task switching working.
+08/09/04:
+	Started code for implementing zone allocator
+11/09/04:
+	zone allocator implementation in progress.
+23/09/04:
+	Got a node, three zones and mem_map array. Started the initialization
+	of node and zones and the allocation of memory for free_area arrays
+	bitmaps, yet to check if things are fine.	
+
+	FIXME: seems to be a problem with sector loading (more than 32 sectors)
+		needs to sort out.
+
+		Seems like the issue is sorted, the sector format is
+		Sector 1  =  H=0, T=0, S=1
+		Sector 19 =  H=1, T=0, S=1
+		Sector 37 =  H=0, T=1, S=1
+		Sector 54 =  H=1, T=1, S=1 and so on
+
+24/09/04:
+	Buddy implementation basic setup over, ie now we have memory allocated
+for the bitmaps in the free_area, also boot memory allocator is retired as we
+will not need it any more. Any further page related activities will be 
+referred to mem_map.
+
+05/10/04:
+	Just a recap of the implementation of read_port_char function, 
+this is implemented as an assembly function as we need to access I/O ports.
+In 'C', the value is returned using the EAX register, so in the function,
+we store the value to be returned in AL. In the 'C' part of the code, we
+need not do any thing ie no need to write extra code to get that value from
+EAX and put it to a variable as the compiler will do it for us.
+
+01/11/04:
+	free_page function coding is almost done. This is the function
+which is invoked when a page(s) is freed. For each page in the system,
+if it is not reserved, this function is invoked to add it to the buddy
+free list. 
+	Need to verify whether the bitmaps are formed correctly, also needs
+to add each block of free page in to the free list.
+
+17/11/04:
+	__free_page implementation over, had to copy the formula for finding
+buddy1 from Linux... may be i will change it later. Next, need to write code
+for alloc_page routine.
+
+Once that is done, we are through with buddy !!! Next will be slab allocator,
+and if and when we finish that, may be we can think of moving to user mode,
+and having a file system in place !!!!.
+
+25/11/04:
+	Started briefly with alloc_pages, also added a piece of code to
+store the number of 'free pages' in each zone in to the free_pages field
+in the zone structure.
+01/12/04:
+	alloc_pages coding finished, after testing, seems like it is fine.
+Now need to write get_free_page/get_free_pages function.
+
+02/12/04:
+	Implemented Get_Free_Page and Get_Free_Pages, these functions are
+named as get_free_page/get_free_pages where already present in our code !
+
+Next is the implementation of slab allocator, for this I need to brush 
+up once more the slab allocator implementation details. Till then ...
+
+10/12/2004:
+	Going to start the SLAB Allocator coding, have prepared a rough draft. Decided to code it my way and then compare it with the Linux code. For the time being not really bothered about h/w cache utilization stuff. Will come to that later.
+
+23/13/2004:
+	Slab alloctor started, in the process of coding kmem_cache_grow.
+
+29/12/2004:
+	kmalloc coding proto finished, need to verify the outputs.
+30/12/2004:
+	kmalloc initial tests passes! ie, the kmalloc return pointer is 
+as per expectations. Needs to carry out more intense test to check the reliability.
+
+We have not yet dealt with the h/s cache optimization part, currently the slab's objects are not even aligned to 4 bytes. As a first step we will get the objects aligned to 4 byte boundary.
+
+8/11/2007:
+	To cut the crap .. lots of changes. In this code
+
+	1) setup code is loaded at 0x1000 and kernel at 0x5000, this was
+done because in earlier code we had setup at 0x7e00 and kernel at 0x1000 which means when the kernel size goes beyond certain kbs it overwrites setup code and system screws !! So for now, setup code is below kernel and hence no overwrites. 
+
+So, the kernel is linked at 0xc0005000 now and loaded at 0x5000
+
+
+This has caused another problem, the setup code was storing parameters like memory size to address 0x7c00 (boot code at 0x7c00 is not needed anymore) but when the kernel loads at 0x7c00 it overwrites the parameters and kernel gets wrong memory size etc.
+
+Thinking of storing these values at 0x1000 (where setup lies), thougt is that the inital part of setup is not needed by the time we reach computing of memory size etc.
+
+10/11/07:
+	Currently storing memory size at 0x1000, hard disk and mouse related
+stuff are commented in setup.asm. As of now rest of the stuff works.
+
+
+14/11/07:
+	Ok, so basic 1 sector read seems to be working, yet to cross check
+if the DMA really happened but we are getting interrupt from floppy controller.

@@ -1,0 +1,1 @@
+As of now we load setup at 0x1000, kernel at 0x5000
